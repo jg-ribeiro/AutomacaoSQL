@@ -12,3 +12,4 @@ Agendar consultas sql para executar programaticamente
 ## Get the app
  - [Windows](https://github.com/jg-ribeiro/AutomacaoSQL/releases/download/v3.0/AutomacaoSQL.v3.0.exe)
  - [Access Database](https://github.com/jg-ribeiro/AutomacaoSQL/releases/download/v3.0/Database.mdb)
+ - [Oracle Instant Client v19+](https://www.oracle.com/database/technologies/instant-client/downloads.html)
