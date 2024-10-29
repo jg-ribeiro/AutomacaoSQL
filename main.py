@@ -92,14 +92,14 @@ def execute_job(raw_data, iter_number=0):
     try:
         name = raw_data['NOME']
         hour = raw_data['HORA']
-        accum_type = raw_data['TIPO_ARQUIVO']
+        data_type = raw_data['TIPO_DADOS']
+        data_aggregation = raw_data['AGRUPAMENTO']
         days_grace = int(raw_data['DIAS_CARENCIA'])
         archive_name = raw_data['NOME_ARQUIVO']
         archive_name_with_extention = raw_data['NOME_ARQUIVO'] + '.csv'
         parameter_name = raw_data['NOME_PARAMETRO']
         date_key = raw_data['COLUNA_DATA']
         sql = raw_data['SCRIPT']
-        mail_recipients = raw_data['RESPONSAVEIS'].split(',')
         last_date = raw_data['ULT_DATA']
     except Exception as error:
         logger.information(
@@ -115,12 +115,12 @@ def execute_job(raw_data, iter_number=0):
         'Routine Info'
     )
 
-    if not accum_type == 'Único':
-        datas_sql = date_treatment(last_date, days_grace)
-        date_comparison = getdate_df_format(datas_sql['sql_dates'][1])
-    else:
+    if data_type == 'Estático':
         datas_sql = None
         date_comparison = None
+    else:
+        datas_sql = date_treatment(last_date, days_grace)
+        date_comparison = getdate_df_format(datas_sql['sql_dates'][1])
 
     try:
         if parameter_name is not None:
@@ -188,14 +188,12 @@ def execute_job(raw_data, iter_number=0):
 
     try:
         # Export csv
-        if accum_type == 'Acumulado':
+        if data_aggregation == 'Ano':
             accum_processing(archive_name_with_extention, select_df, datas_sql['sql_dates'][0], date_key)
-        elif accum_type == 'Mês':
+        elif data_aggregation == 'Mensal':
             month_processing(archive_name, select_df, date_key)
-        elif accum_type == 'Único':
-            default_processing(archive_name_with_extention, select_df)
         else:
-            raise Exception
+            default_processing(archive_name_with_extention, select_df)
 
         total_time = get_datetime() - sub_time
         sub_time = get_datetime()
