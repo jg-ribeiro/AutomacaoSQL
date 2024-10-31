@@ -7,28 +7,38 @@ import schedule
 import pandas as pd
 
 
-def accum_processing(arch_name: str, att_df, initial_date: datetime.datetime, date_key: str):
+def accum_processing(arch_name: str, att_df, initial_date: datetime.datetime, date_key: str, arch_path=None):
     """
     function responsible for processing and exporting files of the accumulated type
     :param arch_name: csv file with extension ex.: 'AptCargas.csv'
     :param att_df: DataFrame get from select operation
     :param initial_date: First date of sql select instruction
     :param date_key: Name of the date column
+    :param arch_path:
     :return: void
-    """
+    """ 
     global main_parameters, database
+
+    if arch_path is not None:
+        if not os.path.exists(arch_path):
+            logger.warning(f'Caminho especificado não encontrado', 'Path Error')
+            export_path = os.path.join(main_parameters['archive_paths'], arch_name)
+        else:
+            export_path = os.path.join(arch_path, arch_name)
+    else:  # if path don't exist use main path
+        export_path = os.path.join(main_parameters['archive_paths'], arch_name)
 
     # Parse char to datetime
     att_df[date_key] = pd.to_datetime(att_df[date_key], format='%d/%m/%Y')
 
     try:
-        accum_df = pd.read_csv(os.path.join(main_parameters['archive_paths'], arch_name), encoding='utf-8', sep=';')
+        accum_df = pd.read_csv(export_path, encoding='utf-8', sep=';')
 
         # Parse char to datetime, because the way pandas export, this needs to be different
         accum_df[date_key] = pd.to_datetime(accum_df[date_key], format='%Y-%m-%d')
     except FileNotFoundError:
         # Export csv anyway
-        att_df.to_csv(os.path.join(main_parameters['archive_paths'], arch_name), encoding='utf-8', sep=';', index=False)
+        att_df.to_csv(export_path, encoding='utf-8', sep=';', index=False)
     else:
         # Get index of items to be deleted
         drop_index = accum_df[accum_df[date_key] >= initial_date].index
@@ -38,17 +48,18 @@ def accum_processing(arch_name: str, att_df, initial_date: datetime.datetime, da
 
         # Export dataframe concatenated
         pd.concat([accum_df, att_df]).to_csv(
-            os.path.join(main_parameters['archive_paths'], arch_name),
+            export_path,
             encoding='utf-8', sep=';', index=False  # Export parameters
         )
 
 
-def month_processing(arch_name: str, data_frame: pd.DataFrame, key: str):
+def month_processing(arch_name: str, data_frame: pd.DataFrame, key: str, arch_path=None):
     """
     function responsible for processing and exporting files of the month type
     :param arch_name: arch_name: csv file without extension ex.: 'AptCargas'
     :param data_frame: DataFrame get from select operation
     :param key: Name of the date column
+    :param arch_path:
     :return: void
     """
     global main_parameters, database
@@ -65,21 +76,39 @@ def month_processing(arch_name: str, data_frame: pd.DataFrame, key: str):
         first_date = month_df[key].min()
         month_str = get_export_name(arch_name, first_date)
 
+        if arch_path is not None:
+            if not os.path.exists(arch_path):
+                logger.warning(f'Caminho especificado não encontrado: {arch_path}', 'Path Error')
+                export_path = os.path.join(main_parameters['archive_paths'], month_str)
+            else:
+                export_path = os.path.join(arch_path, month_str)
+        else:  # if path don't exist use main path
+            export_path = os.path.join(main_parameters['archive_paths'], month_str)
+
         month_df.to_csv(
-            os.path.join(main_parameters['archive_paths'], month_str),  # Archive path with name
+            export_path,  # Archive path with name
             index=False, encoding='utf-8', sep=';'  # Export parameters
         )
 
 
-def default_processing(arch_name: str, data_frame: pd.DataFrame, key=None):
+def default_processing(arch_name: str, data_frame: pd.DataFrame, key=None, arch_path=None):
     global main_parameters
 
     # Parse column type to pd.Datetime
     if key is not None:
         data_frame[key] = pd.to_datetime(data_frame[key], format='%d/%m/%Y')
 
+    if arch_path is not None:
+        if not os.path.exists(arch_path):
+            logger.warning(f'Caminho especificado não encontrado: {arch_path}', 'Path Error')
+            export_path = os.path.join(main_parameters['archive_paths'], arch_name)
+        else:
+            export_path = os.path.join(arch_path, arch_name)
+    else:  # if path don't exist use main path
+        export_path = os.path.join(main_parameters['archive_paths'], arch_name)
+
     data_frame.to_csv(
-        os.path.join(main_parameters['archive_paths'], arch_name),
+        export_path,
         index=False, encoding='utf-8', sep=';'  # Export parameters
     )
 
@@ -95,6 +124,7 @@ def execute_job(raw_data, iter_number=0):
         data_type = raw_data['TIPO_DADOS']
         data_aggregation = raw_data['AGRUPAMENTO']
         days_grace = int(raw_data['DIAS_CARENCIA'])
+        archive_path = raw_data['LOCAL_ARQUIVO']
         archive_name = raw_data['NOME_ARQUIVO']
         archive_name_with_extention = raw_data['NOME_ARQUIVO'] + '.csv'
         parameter_name = raw_data['NOME_PARAMETRO']
@@ -189,11 +219,11 @@ def execute_job(raw_data, iter_number=0):
     try:
         # Export csv
         if data_aggregation == 'Ano':
-            accum_processing(archive_name_with_extention, select_df, datas_sql['sql_dates'][0], date_key)
+            accum_processing(archive_name_with_extention, select_df, datas_sql['sql_dates'][0], date_key, archive_path)
         elif data_aggregation == 'Mensal':
-            month_processing(archive_name, select_df, date_key)
+            month_processing(archive_name, select_df, date_key, archive_path)
         else:
-            default_processing(archive_name_with_extention, select_df)
+            default_processing(archive_name_with_extention, select_df, archive_path)
 
         total_time = get_datetime() - sub_time
         sub_time = get_datetime()
