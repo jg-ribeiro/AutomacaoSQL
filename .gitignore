@@ -3,8 +3,6 @@
 #builds and experiments
 build/
 old_examples/
-# Build automatica
-AutomateBuild.ps1
 
 # arquivo datafile
 # colocando no ignore porque contem dados sensiveis
