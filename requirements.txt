@@ -1,0 +1,5 @@
+pyodbc~=5.2.0
+oracledb~=2.5.1
+pandas==2.0.3
+pywin32
+pyinstaller

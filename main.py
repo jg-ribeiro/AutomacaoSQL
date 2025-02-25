@@ -110,6 +110,11 @@ def execute_job(raw_data, iter_number=0):
         logger.error(str(error), 'Routine Initialization')
         return
 
+    logger.information(
+        f'Iniciando trabalho {name}',
+        'Routine Info'
+    )
+
     if not accum_type == 'Único':
         datas_sql = date_treatment(last_date, days_grace)
         date_comparison = getdate_df_format(datas_sql['sql_dates'][1])
