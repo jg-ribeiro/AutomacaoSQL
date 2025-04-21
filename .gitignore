@@ -14,7 +14,6 @@ AutomateBuild.ps1
 AutomacaoSQL.xlsx
 /Database.accdb
 /Database.mdb
-/jobs.db
 
 # Git ignore file, with python girhub preset
 # Byte-compiled / optimized / DLL files
