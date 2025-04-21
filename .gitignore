@@ -10,10 +10,11 @@ AutomateBuild.ps1
 # colocando no ignore porque contem dados sensiveis
 /datafile.json
 
-# Arquivo excel e acess
+# Arquivo excel e banco de dados
 AutomacaoSQL.xlsx
 /Database.accdb
 /Database.mdb
+/jobs.db
 
 # Git ignore file, with python girhub preset
 # Byte-compiled / optimized / DLL files
