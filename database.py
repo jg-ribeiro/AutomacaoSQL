@@ -24,12 +24,12 @@ def setup_database(db_path: str = DB_PATH) -> None:
         * export_type: TEXT (not null)
         * export_path: TEXT (not null)
         * export_name: TEXT (not null)
-        * check_parameters: TEXT
+        * check_parameter: INTEGER
         * parameter_id: INTEGER (foreign key -> parameters.parameter_id)
         * data_primary_key: TEXT (not a table PK)
         * sql_script: TEXT (allows multilines)
 
-      job_de:
+      jobs_de:
         * job_id: INTEGER PRIMARY KEY (FK -> jobs_he.job_id)
         * job_minute: TEXT
         * job_hour: TEXT
@@ -63,9 +63,10 @@ def setup_database(db_path: str = DB_PATH) -> None:
             export_type TEXT NOT NULL,
             export_path TEXT NOT NULL,
             export_name TEXT NOT NULL,
-            check_parameters TEXT,
+            days_offset INTEGER,
+            check_parameter INTEGER,
             parameter_id INTEGER,
-            data_primary_key TEXT NOT NULL,
+            data_primary_key TEXT,
             sql_script TEXT,
             FOREIGN KEY(parameter_id) REFERENCES parameters(parameter_id)
         )
@@ -74,11 +75,12 @@ def setup_database(db_path: str = DB_PATH) -> None:
 
     # Create job_de table
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS job_de (
-            job_id INTEGER PRIMARY KEY,
-            job_minute TEXT,
-            job_hour TEXT,
-            job_day TEXT,
+        CREATE TABLE IF NOT EXISTS jobs_de (
+            schedule_id INTEGER PRIMARY KEY,
+            job_id INTEGER NOT NULL,
+            job_minute TEXT NOT NULL,
+            job_hour TEXT NOT NULL,
+            job_day TEXT NOT NULL,
             FOREIGN KEY(job_id) REFERENCES jobs_he(job_id)
         )
     """
