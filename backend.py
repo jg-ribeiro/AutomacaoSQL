@@ -60,6 +60,7 @@ def list_jobs():
         minutes = [s.job_minute for s in scheds]
         hours   = [s.job_hour   for s in scheds]
         days    = set([s.job_day     for s in scheds])
+        complete_hour = [f"{h}:{m}" for h in hours for m in minutes]
         result.append({
             'job_id': j.job_id,
             'job_name': j.job_name,
@@ -75,7 +76,9 @@ def list_jobs():
                 'day': ','.join(days),
                 # minutos e horas trazemos únicos (mantendo ordem de aparição)
                 'minute': ','.join(dict.fromkeys(minutes)),
-                'hour':   ','.join(dict.fromkeys(hours))
+                'hour':   ','.join(dict.fromkeys(hours)),
+                # campo com hora completa
+                'complete_hour': ','.join(dict.fromkeys(complete_hour))
             }
         })
     return jsonify(result)
@@ -158,7 +161,6 @@ def update_job(job_id):
     for d in days:
         for h in hours:
             for m in minutes:
-                print(d, h, m)
                 db.session.add(JobDE(
                     job_id=job_id,
                     job_minute=m,
