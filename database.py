@@ -100,6 +100,19 @@ def setup_database(db_path: str = DB_PATH) -> None:
     """
     )
 
+    # Create log table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS logs (
+            log_id INTEGER PRIMARY KEY,
+            timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            log_level TEXT,
+            job_id INTEGER,
+            log_text TEXT NOT NULL,
+            FOREIGN KEY(job_id) REFERENCES jobs_he(job_id)
+        )
+    """
+    )
+
     # Commit and close
     conn.commit()
     conn.close()
@@ -107,35 +120,3 @@ def setup_database(db_path: str = DB_PATH) -> None:
 
 if __name__ == '__main__':
     setup_database()
-    print(f"Database initialized at: {DB_PATH}")
-
-    # Connect to SQLite database
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-            INSERT INTO jobs_he_new
-            SELECT job_id, job_name, 'Y' as job_status, export_type, export_path, export_name, days_offset,
-            CASE
-                WHEN check_parameter = '0' THEN 'N'
-                ELSE 'Y'
-            END AS check_parameter,
-            parameter_id, data_primary_key, sql_script FROM jobs_he
-            WHERE job_status IN ('Y','N')
-        """
-    )
-
-    cursor.execute(
-        """
-        DROP TABLE jobs_he;
-        """
-    )
-
-    cursor.execute(
-        """
-        ALTER TABLE jobs_he_new RENAME TO jobs_he
-        """
-    )
-
-    conn.commit()

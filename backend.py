@@ -198,6 +198,7 @@ def list_jobs():
     return jsonify(result)
 
 @app.route('/api/jobs', methods=['POST'])
+@role_required(['root', 'moderator', 'normal'])
 def create_job():
     data = request.json
     # Cria JobHE
@@ -234,6 +235,7 @@ def create_job():
     return jsonify({'job_id': new_job.job_id}), 201
 
 @app.route('/api/jobs/<int:job_id>', methods=['GET'])
+@role_required(['root', 'moderator'])
 def get_job(job_id):
     j = JobHE.query.get_or_404(job_id)
     scheds = JobDE.query.filter_by(job_id=job_id).all()
@@ -257,6 +259,7 @@ def get_job(job_id):
     })
 
 @app.route('/api/jobs/<int:job_id>', methods=['PUT'])
+@role_required(['root', 'moderator'])
 def update_job(job_id):
     data = request.json
     j = JobHE.query.get_or_404(job_id)
@@ -291,6 +294,7 @@ def update_job(job_id):
     return jsonify({'msg':'updated'})
 
 @app.route('/api/jobs/<int:job_id>', methods=['DELETE'])
+@role_required(['root', 'moderator'])
 def delete_job(job_id):
     JobHE.query.filter_by(job_id=job_id).delete()
     JobDE.query.filter_by(job_id=job_id).delete()
