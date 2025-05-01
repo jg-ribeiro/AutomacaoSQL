@@ -1,6 +1,5 @@
 import datetime
 import oracledb
-import pandas as pd
 from auxiliares import Logger
 import os
 import time
@@ -27,8 +26,8 @@ class OracleCon:
         try:
             self._connection_test()
         except Exception:
-            pass
-            #self.log.logger.critical('Error to execute test connection')
+            print('erro')
+            raise
 
         self.connection = None
         self.cursor = None
@@ -88,7 +87,9 @@ class OracleCon:
     def close_cursor(self):
         self.cursor.close()
 
-    def execute_select(self, sql: str, **kwargs) -> pd.DataFrame:
+    def execute_select(self, sql: str, **kwargs):
+        self.create_connection()
+
         var1 = kwargs.get('var1')
         var2 = kwargs.get('var2')
 
@@ -115,14 +116,24 @@ class OracleCon:
         for column in self.cursor.description:
             columns.append(column[0])  # Append column name in columns index
 
-        try:
-            df = pd.DataFrame(self.cursor.fetchall(), columns=columns)
-        except Exception as UnhandledError:
-            #self.log.warning(f'Unhandled error while executing select: {UnhandledError}')
-            raise pd.errors.DataError  # DataError is a place holder
+        result = {
+            'columns': columns,
+            'data': self.cursor.fetchall()
+        }
 
-        return df
+        self.close_connection()
+        return result
 
 
 if __name__ == '__main__':
-    pass
+    from auxiliares import open_json
+    main_param = open_json()
+
+    oracledb.init_oracle_client(lib_dir=main_param['oracle_database']['INSTANT_CLIENT'])
+    with oracledb.connect(user='rrezende', password='Rgm#040616', dsn='USA') as connection:
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT SYSDATE FROM DUAL')
+
+                result = cursor.fetchone()
+        
+    print(result)
