@@ -121,7 +121,7 @@ def open_json() -> dict:
         with open('datafile.json', 'r', encoding='utf-8') as jsonfile:
             datafile = jsonfile.read()
     except FileNotFoundError:
-        color_print('Arquivo não encontrado!', 'RED')
+        print('Arquivo não encontrado!')
         with open('datafile.json', 'w', encoding='utf-8') as jsonfile:
             jsonfile.writelines(base_content)
         exit()
