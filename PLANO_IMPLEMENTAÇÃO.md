@@ -1,14 +1,14 @@
 # Plano de implantação da base sqlite3 no scheduler:
 
-- [ ] Criar e testar funções CRUD
+- [x] Criar e testar funções CRUD
   - [x] fetch_jobs()
   - [ ] ~~log_to_database()~~<candelado>
 - [x] Adaptar função que agenda as tarefas
   - [x] schedule_jobs()
   - [x] cria lógica para executar em threads
 - [ ] Classe Logger
-  - [ ] Remover Classe de Logger e fazer CRUD pelo scheduler
-  - [ ] Melhorar o identificador log_level
+  - [x] Remover Classe de Logger e fazer CRUD pelo scheduler
+  - [x] Melhorar o identificador log_level
   - [ ] FRONT/BACK - Criar logs de alterações de propriedades, exclusões e etc... 
 - [ ] Criar tela de execução de eventuais. (moderadores)
 - [ ] Criar tela de log no front:
