@@ -3,10 +3,7 @@ import locale
 import os
 import sys
 import json
-import logging
-import pandas as pd
 import win32com.client
-from access import *
 import re
 
 locale.setlocale(locale.LC_TIME, 'pt_br')
@@ -75,26 +72,6 @@ def get_export_name(arch_name: str, date_ref: datetime.datetime) -> str:
 
 """
 ##----------------------------------------
-Color print function
-##----------------------------------------
-"""
-
-
-def color_print(string, color: str):
-    colors = {
-        'RED': '\033[91m',
-        'GRE': '\033[92m',
-        'BLU': '\033[96m',
-        'YEL': '\033[93m'
-    }
-    color = colors[color]
-    white = '\033[00m'
-
-    print(color + string + white)
-
-
-"""
-##----------------------------------------
 Json files aux function
 ##----------------------------------------
 """
@@ -128,96 +105,6 @@ def open_json() -> dict:
 
     return json.loads(datafile)
 
-
-"""
-##----------------------------------------
-Logging functions
-##----------------------------------------
-"""
-
-
-class CustomFormatter(logging.Formatter):
-    format = r"%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
-
-    FORMATS = {
-        logging.DEBUG: format,
-        logging.INFO: format,
-        logging.WARNING: format,
-        logging.ERROR: format,
-        logging.CRITICAL: format,
-    }
-
-    def format(self, record):
-        log_fmt = self.FORMATS.get(record.levelno)
-        formatter = logging.Formatter(log_fmt)
-        return formatter.format(record)
-
-
-class Logger:
-    def __init__(self, name: str, db_manager=None):
-        """
-        :param name: log identification
-        """
-
-        if db_manager is None:
-            print('WARNING:' + name + ':Access database was not configured')
-
-        self._db_manager = db_manager
-
-        logging.basicConfig(
-            filename='informacoes.log',
-            encoding='utf-8',
-            level=logging.INFO
-        )
-        self.logger = logging.getLogger(name)
-        self._log_name = name
-
-        # Adiciona um manipulador de console com o formatador personalizado:
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-        console_handler.setFormatter(CustomFormatter())
-        self.logger.addHandler(console_handler)
-
-    @property
-    def db_manager(self):
-        return self._db_manager
-
-    @db_manager.setter
-    def db_manager(self, db_manager: DBManager):
-        self._db_manager = db_manager
-        print('INFO:' + self._log_name + ':Access database has successfully set')
-
-    def information(self, msg: str, job_info: str):
-        self.logger.info(msg)
-        self._log_to_database('INFO', job_info, msg)
-
-    def warning(self, msg: str, job_info: str):
-        self.logger.warning(msg)
-        self._log_to_database('WARNING', job_info, msg)
-
-    def error(self, msg: str, job_info: str):
-        self.logger.error(msg)
-        self._log_to_database('ERROR', job_info, msg)
-
-    def internal_logger_error(self, msg: str):
-        self.logger.error(msg)
-
-    def _log_to_database(self, level: str, job_info: str, msg: str):
-        """
-        Add record to log table
-        :param level: Log level info
-        :param job_info: Job info. Obs.: Can be job name, type of work being done
-        :param msg: Error message to be stored in access table
-        :return:
-        """
-        if self.db_manager:
-            try:
-                self.db_manager.execute_dml(
-                    "INSERT INTO TABELA_LOG ([TIMESTAMP], LOG_LEVEL, LOG_NAME, WORK, LOG_TEXT)\n"
-                    f"VALUES ('{str(get_datetime())}', '{level}', '{self._log_name}', '{job_info}', '{msg}')"
-                )
-            except Exception as ex:
-                self.internal_logger_error(f"Erro ao registrar no banco de dados: {ex}")
 
 """
 ##----------------------------------------
