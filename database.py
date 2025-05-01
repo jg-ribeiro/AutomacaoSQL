@@ -32,7 +32,8 @@ def setup_database(db_path: str = DB_PATH) -> None:
         * sql_script: TEXT (allows multilines)
 
       jobs_de:
-        * job_id: INTEGER PRIMARY KEY (FK -> jobs_he.job_id)
+        * schedule_id: INTEGER PRIMARY KEY
+        * job_id: INTEGER (FK -> jobs_he.job_id)
         * job_minute: TEXT
         * job_hour: TEXT
         * job_day: TEXT
