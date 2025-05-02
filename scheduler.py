@@ -129,10 +129,11 @@ def fetch_jobs(job_id=None):
 
 
 def execute_job(job_data):
+    job_logger = get_logger('executor')
     job_id = job_data.get('job_id', None)
     job_name = job_data.get('name', 'Unknown Job')
     start_time = time.time()
-    log_info(logger, f"Starting job execution: '{job_name}'", job_id=job_id)
+    log_info(job_logger, f"Starting job execution: '{job_name}'", job_id=job_id)
 
     try:
         accum_type = job_data['export_type']
@@ -149,21 +150,21 @@ def execute_job(job_data):
         sql = job_data['sql_script']
 
         if not sql:
-            log_error(logger, f"Job '{job_name}' has no SQL script defined.", job_id=job_id)
+            log_error(job_logger, f"Job '{job_name}' has no SQL script defined.", job_id=job_id)
             return
     
         absolute_path = os.path.join(archive_path, archive_name_with_extention)
-        log_debug(logger, f"Job '{job_name}': Export path: {absolute_path}", job_id=job_id)
+        log_debug(job_logger, f"Job '{job_name}': Export path: {absolute_path}", job_id=job_id)
 
         # Ensure target directory exists
         os.makedirs(archive_path, exist_ok=True)
 
         # Verifica se o comando é DQL
         if not is_select_query(sql):
-            log_error(logger, f"Job '{job_name}': SQL is not a SELECT query. Aborting.", job_id=job_id)
+            log_error(job_logger, f"Job '{job_name}': SQL is not a SELECT query. Aborting.", job_id=job_id)
             return
 
-        log_debug(logger, f"Job '{job_name}': Executing SQL:\n{sql[:200]}...", job_id=job_id)
+        log_debug(job_logger, f"Job '{job_name}': Executing SQL:\n{sql[:200]}...", job_id=job_id)
         rows_exported = 0
 
         # Execução do SQL e exportação com fetchmany()
@@ -185,21 +186,21 @@ def execute_job(job_data):
                             break
                         writer.writerows(rows)
                         rows_exported += len(rows)
-                        log_debug(logger, f"Job '{job_name}': Fetched/wrote {len(rows)} rows (Total: {rows_exported})", job_id=job_id)
+                        log_debug(job_logger, f"Job '{job_name}': Fetched/wrote {len(rows)} rows (Total: {rows_exported})", job_id=job_id)
         
         end_time = time.time()
         duration_ms = int((end_time - start_time) * 1000)
-        log_info(logger, f"Job '{job_name}' finished successfully. Exported {rows_exported} rows.", job_id=job_id, duration_ms=duration_ms)
+        log_info(job_logger, f"Job '{job_name}' finished successfully. Exported {rows_exported} rows.", job_id=job_id, duration_ms=duration_ms)
 
     except FileNotFoundError:
-        log_exception(logger, f"Job '{job_name}': Error creating/writing file at '{absolute_path}'. Check path and permissions.", job_id=job_id)
+        log_exception(job_logger, f"Job '{job_name}': Error creating/writing file at '{absolute_path}'. Check path and permissions.", job_id=job_id)
     except oracledb.DatabaseError as ora_err:
-         log_exception(logger, f"Job '{job_name}': Oracle Database Error during execution: {ora_err}", job_id=job_id)
+         log_exception(job_logger, f"Job '{job_name}': Oracle Database Error during execution: {ora_err}", job_id=job_id)
     except Exception as error:
         end_time = time.time()
         duration_ms = int((end_time - start_time) * 1000)
         # Use log_exception to include traceback
-        log_exception(logger, f"Job '{job_name}': Unexpected error during execution: {error}", job_id=job_id, duration_ms=duration_ms)
+        log_exception(job_logger, f"Job '{job_name}': Unexpected error during execution: {error}", job_id=job_id, duration_ms=duration_ms)
         # Optionally re-raise if needed elsewhere, but likely not in a scheduled task
         # return # Ensure function exits on error
 
