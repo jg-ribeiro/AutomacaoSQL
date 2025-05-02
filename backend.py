@@ -291,7 +291,7 @@ def update_job(job_id):
     return jsonify({'msg':'updated'})
 
 @app.route('/api/jobs/<int:job_id>', methods=['DELETE'])
-@role_required(['root', 'moderator'])
+#@role_required(['root', 'moderator'])
 def delete_job(job_id):
     JobHE.query.filter_by(job_id=job_id).delete()
     JobDE.query.filter_by(job_id=job_id).delete()
