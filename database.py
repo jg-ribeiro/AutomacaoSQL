@@ -1,5 +1,9 @@
 import os
 import sqlite3
+from werkzeug.security import generate_password_hash, check_password_hash
+
+def set_password(self, pw):
+        self.password_hash = generate_password_hash(pw)
 
 # Path to your SQLite database file
 DB_PATH = os.path.join(os.path.dirname(__file__), 'jobs.db')
@@ -112,6 +116,15 @@ def setup_database(db_path: str = DB_PATH) -> None:
             FOREIGN KEY(job_id) REFERENCES jobs_he(job_id)
         )
     """
+    )
+
+    # Create root user for first time
+    pwd = generate_password_hash(input('Sua senha (bem forte) do root:'))
+    cursor.execute(
+         """INSERT INTO users (username, password_hash, role)
+            VALUES (?, ?, ?)
+         """,
+         ('root', pwd, 'root')
     )
 
     # Commit and close
