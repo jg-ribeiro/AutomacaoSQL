@@ -23,7 +23,7 @@ def role_required(*roles):
 main_parameters = open_json()
 
 # Configurações iniciais do Flask
-template_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'frontend', 'dist')
+template_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'react-build')
 app = Flask(__name__, static_folder=template_dir, static_url_path='')
 CORS(app, supports_credentials=True)  # para cookies via React
 app.config['SECRET_KEY'] = main_parameters['backend']['secret_key']
@@ -302,9 +302,11 @@ def delete_job(job_id):
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve_frontend(path):
-    # Se existir arquivo estático, serve-o, senão serve o index.html
-    if path and os.path.exists(os.path.join(app.static_folder, path)):
+    # se existir arquivo estático, serve ele
+    file_path = os.path.join(app.static_folder, path)
+    if path and os.path.exists(file_path):
         return send_from_directory(app.static_folder, path)
+    # senão devolve o index.html para o SPA
     return send_from_directory(app.static_folder, 'index.html')
 
 if __name__ == '__main__':
