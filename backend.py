@@ -275,7 +275,7 @@ def list_parameters():
 
 @app.route('/api/jobs', methods=['GET'])
 def list_jobs():
-    jobs = JobHE.query.all()
+    jobs = JobHE.query.order_by(JobHE.job_name).all()
     result = []
     for j in jobs:
         # puxa todos os schedules
