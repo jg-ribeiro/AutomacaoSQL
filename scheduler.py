@@ -137,7 +137,7 @@ def execute_job(job_data):
 
     try:
         accum_type = job_data['export_type']
-        days_offset = int(job_data['days_offset'])
+        #days_offset = int(job_data['days_offset'])
         archive_path = job_data['export_path']
         archive_name_with_extention = job_data['export_name'] + '.csv'
         check_parameter = job_data['check_parameter']
@@ -174,7 +174,7 @@ def execute_job(job_data):
                 cursor.execute(sql)
 
                 with open(absolute_path, 'w', newline='', encoding='utf-8') as csvfile:
-                    writer = csv.writer(csvfile)
+                    writer = csv.writer(csvfile, delimiter=';')
                     
                     headers = [col[0] for col in cursor.description]
                     writer.writerow(headers)
@@ -214,6 +214,13 @@ def schedule_job(jobs=None):
     if jobs is None:
         jobs = fetch_jobs()
         log_info(logger, f"Scheduling all active jobs from database.")
+
+        # a cada 2 horas, faz o reload completo:
+        schedule.every(2).hours.do(lambda: (
+            schedule.clear(),   # limpa tudo
+            schedule_job()      # recarrega todos
+        ))
+        log_info(logger, "Scheduled periodic job reload every 2 hours.")
     elif type(jobs) == int:
         log_source = f"database (ID: {jobs})"
         jobs = fetch_jobs(job_id=jobs)
@@ -284,13 +291,6 @@ def run_loop():
         except Exception as e:
              log_exception(logger, f"Error in scheduler run_loop: {e}. Continuing loop.")
              time.sleep(30) # Sleep a bit longer after an error in the loop itself
-
-# a cada 2 horas, faz o reload completo:
-schedule.every(2).hours.do(lambda: (
-    schedule.clear(),   # limpa tudo
-    schedule_job()      # recarrega todos
-))
-log_info(logger, "Scheduled periodic job reload every 2 hours.")
 
 
 if __name__ == '__main__':
