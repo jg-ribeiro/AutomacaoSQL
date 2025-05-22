@@ -28,7 +28,7 @@ DAY_MAP = {
     'Qua': 'wednesday',
     'Qui': 'thursday',
     'Sex': 'friday',
-    'Sab': 'saturday',
+    'Sáb': 'saturday',
     'Dom': 'sunday'
 }
 
@@ -170,6 +170,9 @@ def execute_job(job_data):
         # Execução do SQL e exportação com fetchmany()
         with oracledb.connect(user=USER, password=PWD, dsn=DSN) as connection:
             with connection.cursor() as cursor:
+                # Altera o formato de data para o padrão regional
+                cursor.execute("ALTER SESSION SET NLS_DATE_FORMAT = 'DD/MM/YYYY'")
+
                 cursor.arraysize = ARRAYSIZE
                 cursor.execute(sql)
 
