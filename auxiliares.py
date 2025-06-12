@@ -78,9 +78,7 @@ Json files aux function
 
 
 def open_json() -> dict:
-    base_content = """
-{
-  "access_path": "",
+    base_content = """{
   "oracle_database": {
     "TSN": "",
     "INSTANT_CLIENT": ""
@@ -89,9 +87,14 @@ def open_json() -> dict:
     "secret_key": "",
     "sqlite_path": ""
   },
-  "archive_paths": "",
   "user_name": "",
-  "user_pass": ""
+  "user_pass": "",
+  "data_api": {
+    "csv_folder_path": "",
+    "api_keys": [
+      ""
+    ]
+  }
 }"""
 
     try:
