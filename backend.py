@@ -3,11 +3,14 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import safe_join
 from functools import wraps
 import os
 from auxiliares import open_json
 
 import time # For request duration logging
+
+import pandas as pd
 
 # --- Import Logging ---
 from logging_config import get_logger, log_info, log_warning, log_error, log_exception, log_debug
@@ -24,6 +27,27 @@ def role_required(*roles):
             return f(*args, **kwargs)
         return wrapped
     return decorator
+
+# Novo decorador para a API de dados
+def data_api_auth_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # 1. Tenta autenticar via Chave de API no header
+        api_key = request.headers.get('X-API-Key')
+        valid_keys = main_parameters.get('data_api', {}).get('api_keys', [])
+        if api_key and api_key in valid_keys:
+            log_info(logger, f"Data API access granted via API Key.", user="api_key_user")
+            return f(*args, **kwargs)
+
+        # 2. Se não houver chave, verifica o login de sessão normal
+        if current_user.is_authenticated:
+            log_info(logger, f"Data API access granted via user session.", user=current_user.username)
+            return f(*args, **kwargs)
+
+        # 3. Se nenhum dos dois funcionar, nega o acesso
+        log_warning(logger, f"Data API access denied. No valid session or API Key.", user="anonymous")
+        return jsonify({'msg': 'Authentication required'}), 401
+    return decorated_function
 
 # Parametros principais
 main_parameters = open_json()
@@ -475,6 +499,96 @@ def delete_job(job_id):
         db.session.rollback()
         log_exception(logger, f"Error deleting job '{job_name}' (ID: {job_id}) by '{actor}': {e}", job_id=job_id, user=actor)
         return jsonify({'msg': 'Error deleting job'}), 500
+    
+
+# =========================================================
+# ================ API DE DADOS (CSVs) ====================
+# =========================================================
+
+# Endpoint para listar os datasets (arquivos CSV) disponíveis
+@app.route('/api/data/datasets', methods=['GET'])
+@data_api_auth_required
+def list_datasets():
+    """
+    Lista todos os arquivos .csv disponíveis na pasta configurada,
+    incluindo os que estão em subpastas.
+    """
+    try:
+        csv_path = main_parameters['data_api']['csv_folder_path']
+        if not os.path.isdir(csv_path):
+            log_error(logger, f"CSV folder not found at path: {csv_path}")
+            return jsonify({'error': 'Server configuration error: CSV folder not found'}), 500
+
+        datasets = []
+        # os.walk percorre a árvore de diretórios de cima para baixo
+        for root, dirs, files in os.walk(csv_path):
+            for filename in files:
+                if filename.endswith('.csv'):
+                    # Pega o caminho completo do arquivo
+                    full_path = os.path.join(root, filename)
+                    # Calcula o caminho relativo à pasta base
+                    relative_path = os.path.relpath(full_path, csv_path)
+                    # Remove a extensão .csv e garante barras de URL (/)
+                    dataset_id = os.path.splitext(relative_path)[0].replace(os.sep, '/')
+                    datasets.append(dataset_id)
+        
+        return jsonify(sorted(datasets)) # Retorna a lista ordenada para melhor visualização
+    except KeyError:
+        log_error(logger, "data_api:csv_folder_path not configured in parameters file.")
+        return jsonify({'error': 'Server configuration error: API path not configured'}), 500
+    except Exception as e:
+        log_exception(logger, f"Error listing datasets: {e}")
+        return jsonify({'error': 'An unexpected error occurred while listing datasets'}), 500
+
+
+# Endpoint para obter os dados de um dataset específico
+# MUDANÇA CRÍTICA: Usamos <path:dataset_path> para capturar caminhos com barras
+@app.route('/api/data/datasets/<path:dataset_path>', methods=['GET'])
+@data_api_auth_required
+def get_dataset(dataset_path): # O nome da variável aqui deve corresponder ao da rota
+    """
+    Retorna o conteúdo de um arquivo CSV como JSON, usando um caminho relativo.
+    Suporta paginação com os parâmetros de query ?limit= e ?offset=
+    """
+    try:
+        base_path = main_parameters['data_api']['csv_folder_path']
+        
+        # O safe_join vai combinar o caminho base com o caminho relativo da URL
+        # e normalizar os separadores (ex: / para \ no Windows)
+        file_path = safe_join(base_path, f"{dataset_path}.csv")
+        
+        # A verificação de segurança continua crucial e funcional
+        if file_path is None or not os.path.normpath(file_path).startswith(os.path.normpath(base_path)):
+             log_warning(logger, f"Potential directory traversal attempt for dataset: {dataset_path}")
+             return jsonify({'error': 'Invalid dataset name'}), 400
+
+        if not os.path.isfile(file_path):
+            log_warning(logger, f"Dataset not found: {dataset_path}")
+            return jsonify({'error': f'Dataset "{dataset_path}" not found'}), 404
+
+        print(file_path)
+        # O resto da função permanece igual
+        df = pd.read_csv(file_path, encoding='utf-8', sep=';')
+        df = df.astype(object).where(pd.notnull(df), None)
+
+        try:
+            limit = request.args.get('limit', type=int)
+            offset = request.args.get('offset', default=0, type=int)
+            if limit is not None:
+                df = df.iloc[offset : offset + limit]
+        except Exception as e:
+            log_warning(logger, f"Invalid pagination parameters for {dataset_path}: {e}")
+
+        data = df.to_dict(orient='records')
+        return jsonify(data)
+
+    except KeyError:
+        log_error(logger, "data_api:csv_folder_path not configured in parameters file.")
+        return jsonify({'error': 'Server configuration error: API path not configured'}), 500
+    except Exception as e:
+        log_exception(logger, f"Error processing dataset {dataset_path}: {e}")
+        return jsonify({'error': f'An error occurred while processing the dataset: {str(e)}'}), 500
+
 
 # Servindo o front-end React+Vite (agora usando o REACT_BUILD do config)
 @app.route('/', defaults={'path': ''})
