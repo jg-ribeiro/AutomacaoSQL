@@ -4,6 +4,11 @@ numpy==1.26.4
 pandas==2.0.3
 pywin32
 pyinstaller
-schedule
-SQLAlchemy
+schedule~=1.2.2
+SQLAlchemy~=2.0.41
 psycopg2
+flask~=3.1.1
+flask-cors~=6.0.1
+flask-sqlalchemy
+flask-login~=0.6.3
+Werkzeug~=3.1.3
