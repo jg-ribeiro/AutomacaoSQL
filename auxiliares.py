@@ -3,12 +3,40 @@ import locale
 import os
 import sys
 import json
-import logging
-import pandas as pd
 import win32com.client
-from access import *
+import re
+from sqlalchemy import create_engine, text
+from urllib.parse import quote_plus
 
 locale.setlocale(locale.LC_TIME, 'pt_br')
+
+def get_postgres_engine(pg_params):
+    """Cria e retorna um engine SQLAlchemy para o PostgreSQL."""
+    password_safe = quote_plus(pg_params['password'])
+    database_url = (
+        f"postgresql+psycopg2://{pg_params['username']}:{password_safe}"
+        f"@{pg_params['hostname']}:{pg_params['port']}/{pg_params['database']}"
+    )
+    engine = create_engine(database_url)
+    
+    # Testa a conexão
+    try:
+        with engine.connect() as connection:
+            result = connection.execute(text("SELECT version()"))
+            print(f"Conectado com sucesso ao PostgreSQL: {result.fetchone()[0]}")
+        return engine
+    except Exception as e:
+        print(f"Erro ao conectar ao PostgreSQL: {e}")
+        exit(1)
+
+def get_postgres_url(pg_params):
+    password_safe = quote_plus(pg_params['password'])
+    database_url = (
+        f"postgresql+psycopg2://{pg_params['username']}:{password_safe}"
+        f"@{pg_params['hostname']}:{pg_params['port']}/{pg_params['database']}"
+    )
+
+    return database_url
 
 """
 ##----------------------------------------
@@ -74,49 +102,43 @@ def get_export_name(arch_name: str, date_ref: datetime.datetime) -> str:
 
 """
 ##----------------------------------------
-Color print function
-##----------------------------------------
-"""
-
-
-def color_print(string, color: str):
-    colors = {
-        'RED': '\033[91m',
-        'GRE': '\033[92m',
-        'BLU': '\033[96m',
-        'YEL': '\033[93m'
-    }
-    color = colors[color]
-    white = '\033[00m'
-
-    print(color + string + white)
-
-
-"""
-##----------------------------------------
 Json files aux function
 ##----------------------------------------
 """
 
 
 def open_json() -> dict:
-    base_content = """
-{
-  "access_path": "",
-  "database": {
-    "TSN": ""
+    base_content = """{
+  "oracle_database": {
+    "TSN": "",
     "INSTANT_CLIENT": ""
   },
-  "archive_paths": "",
+  "backend": {
+    "secret_key": "",
+    "sqlite_path": ""
+  },
+  "postgres":{
+    "hostname": "localhost",
+    "port": "5432",
+    "database": "",
+    "username": "",
+    "password": ""
+  },
   "user_name": "",
-  "user_pass": ""
+  "user_pass": "",
+  "data_api": {
+    "csv_folder_path": "",
+    "api_keys": [
+      ""
+    ]
+  }
 }"""
 
     try:
         with open('datafile.json', 'r', encoding='utf-8') as jsonfile:
             datafile = jsonfile.read()
     except FileNotFoundError:
-        color_print('Arquivo não encontrado!', 'RED')
+        print('Arquivo não encontrado!')
         with open('datafile.json', 'w', encoding='utf-8') as jsonfile:
             jsonfile.writelines(base_content)
         exit()
@@ -126,94 +148,58 @@ def open_json() -> dict:
 
 """
 ##----------------------------------------
-Logging functions
+SQL check functions
 ##----------------------------------------
 """
 
-
-class CustomFormatter(logging.Formatter):
-    format = r"%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
-
-    FORMATS = {
-        logging.DEBUG: format,
-        logging.INFO: format,
-        logging.WARNING: format,
-        logging.ERROR: format,
-        logging.CRITICAL: format,
-    }
-
-    def format(self, record):
-        log_fmt = self.FORMATS.get(record.levelno)
-        formatter = logging.Formatter(log_fmt)
-        return formatter.format(record)
-
-
-class Logger:
-    def __init__(self, name: str, db_manager=None):
-        """
-        :param name: log identification
-        """
-
-        if db_manager is None:
-            print('WARNING:' + name + ':Access database was not configured')
-
-        self._db_manager = db_manager
-
-        logging.basicConfig(
-            filename='informacoes.log',
-            encoding='utf-8',
-            level=logging.INFO
-        )
-        self.logger = logging.getLogger(name)
-        self._log_name = name
-
-        # Adiciona um manipulador de console com o formatador personalizado:
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-        console_handler.setFormatter(CustomFormatter())
-        self.logger.addHandler(console_handler)
-
-    @property
-    def db_manager(self):
-        return self._db_manager
-
-    @db_manager.setter
-    def db_manager(self, db_manager: DBManager):
-        self._db_manager = db_manager
-        print('INFO:' + self._log_name + ':Access database has successfully set')
-
-    def information(self, msg: str, job_info: str):
-        self.logger.info(msg)
-        self._log_to_database('INFO', job_info, msg)
-
-    def warning(self, msg: str, job_info: str):
-        self.logger.warning(msg)
-        self._log_to_database('WARNING', job_info, msg)
-
-    def error(self, msg: str, job_info: str):
-        self.logger.error(msg)
-        self._log_to_database('ERROR', job_info, msg)
-
-    def internal_logger_error(self, msg: str):
-        self.logger.error(msg)
-
-    def _log_to_database(self, level: str, job_info: str, msg: str):
-        """
-        Add record to log table
-        :param level: Log level info
-        :param job_info: Job info. Obs.: Can be job name, type of work being done
-        :param msg: Error message to be stored in access table
-        :return:
-        """
-        if self.db_manager:
-            try:
-                self.db_manager.execute_dml(
-                    "INSERT INTO TABELA_LOG ([TIMESTAMP], LOG_LEVEL, LOG_NAME, WORK, LOG_TEXT)\n"
-                    f"VALUES ('{str(get_datetime())}', '{level}', '{self._log_name}', '{job_info}', '{msg}')"
-                )
-            except Exception as ex:
-                self.internal_logger_error(f"Erro ao registrar no banco de dados: {ex}")
+def is_select_query(sql):
+    """
+    Verifica se a consulta SQL é apenas para leitura (DQL).
+    """
+    # Remove comentários e normaliza espaços em branco
+    normalized_sql = re.sub(r'--.*?\n|/\*.*?\*/', '', sql, flags=re.DOTALL)
+    normalized_sql = re.sub(r'\s+', ' ', normalized_sql).strip().upper()
+    
+    # Verifica se a consulta começa com palavras-chave de leitura
+    allowed_patterns = [
+        r'^SELECT\s+',
+        r'^WITH\s+',
+        r'^SHOW\s+',
+        r'^DESCRIBE\s+',
+        r'^EXPLAIN\s+'
+    ]
+    
+    # Verifica se a consulta é apenas de leitura
+    is_read_only = any(re.match(pattern, normalized_sql) for pattern in allowed_patterns)
+    
+    # Verifica se não contém palavras-chave de modificação de dados
+    forbidden_patterns = [
+        r'\s+INSERT\s+',
+        r'\s+UPDATE\s+', 
+        r'\s+DELETE\s+',
+        r'\s+DROP\s+',
+        r'\s+CREATE\s+',
+        r'\s+ALTER\s+',
+        r'\s+TRUNCATE\s+',
+        r'\s+GRANT\s+',
+        r'\s+REVOKE\s+',
+        r'\s+MERGE\s+',
+        r'^INSERT\s+', 
+        r'^UPDATE\s+', 
+        r'^DELETE\s+',
+        r'^DROP\s+',
+        r'^CREATE\s+',
+        r'^ALTER\s+',
+        r'^TRUNCATE\s+',
+        r'^GRANT\s+',
+        r'^REVOKE\s+',
+        r'^MERGE\s+'
+    ]
+    
+    contains_forbidden = any(re.search(pattern, normalized_sql) for pattern in forbidden_patterns)
+    
+    return is_read_only and not contains_forbidden
 
 
 if __name__ == '__main__':
-    pass
+    open_json()
