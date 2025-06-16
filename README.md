@@ -83,8 +83,8 @@ Siga os passos abaixo para configurar o ambiente de desenvolvimento.
 
 **1. Clone o repositório:**
 ```bash
-git clone <url-do-seu-repositorio>
-cd <nome-do-repositorio>
+git clone https://github.com/jg-ribeiro/AutomacaoSQL.git
+cd AutomacaoSQL
 ```
 
 **2. Crie e ative um ambiente virtual (recomendado):**
