@@ -5,8 +5,38 @@ import sys
 import json
 import win32com.client
 import re
+from sqlalchemy import create_engine, text
+from urllib.parse import quote_plus
 
 locale.setlocale(locale.LC_TIME, 'pt_br')
+
+def get_postgres_engine(pg_params):
+    """Cria e retorna um engine SQLAlchemy para o PostgreSQL."""
+    password_safe = quote_plus(pg_params['password'])
+    database_url = (
+        f"postgresql+psycopg2://{pg_params['username']}:{password_safe}"
+        f"@{pg_params['hostname']}:{pg_params['port']}/{pg_params['database']}"
+    )
+    engine = create_engine(database_url)
+    
+    # Testa a conexão
+    try:
+        with engine.connect() as connection:
+            result = connection.execute(text("SELECT version()"))
+            print(f"Conectado com sucesso ao PostgreSQL: {result.fetchone()[0]}")
+        return engine
+    except Exception as e:
+        print(f"Erro ao conectar ao PostgreSQL: {e}")
+        exit(1)
+
+def get_postgres_url(pg_params):
+    password_safe = quote_plus(pg_params['password'])
+    database_url = (
+        f"postgresql+psycopg2://{pg_params['username']}:{password_safe}"
+        f"@{pg_params['hostname']}:{pg_params['port']}/{pg_params['database']}"
+    )
+
+    return database_url
 
 """
 ##----------------------------------------
@@ -86,6 +116,13 @@ def open_json() -> dict:
   "backend": {
     "secret_key": "",
     "sqlite_path": ""
+  },
+  "postgres":{
+    "hostname": "localhost",
+    "port": "5432",
+    "database": "",
+    "username": "",
+    "password": ""
   },
   "user_name": "",
   "user_pass": "",

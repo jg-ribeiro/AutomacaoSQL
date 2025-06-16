@@ -40,8 +40,7 @@ PWD = MAIN_PARAMETERS['user_pass']
 ARRAYSIZE = 5000
 
 # Configuração do SQLITE3
-SQLITE_PATH = os.getenv('SQLITE_PATH', MAIN_PARAMETERS['backend']['sqlite_path'])
-engine = create_engine(SQLITE_PATH, echo=False)
+engine = get_postgres_engine(MAIN_PARAMETERS['postgres'])
 Session = sessionmaker(bind=engine)
 
 # Thread pool (ajuste max_workers conforme CPUs / volume de jobs)

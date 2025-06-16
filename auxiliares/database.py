@@ -1,15 +1,16 @@
 import os
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
+from auxiliares import open_json
+
+params = open_json()
+
 
 def set_password(self, pw):
         self.password_hash = generate_password_hash(pw)
 
-# Path to your SQLite database file
-DB_PATH = os.path.join(os.path.dirname(__file__), 'jobs.db')
 
-
-def setup_database(db_path: str = DB_PATH) -> None:
+def setup_database() -> None:
     """
     Create the SQLite database and required tables:
       - parameters
@@ -42,11 +43,14 @@ def setup_database(db_path: str = DB_PATH) -> None:
         * job_hour: TEXT
         * job_day: TEXT
     """
+    # Path to your SQLite database file
+    DB_PATH = os.path.join(os.path.dirname(__file__), 'jobs.db')
+
     # Ensure directory exists
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
     # Connect to SQLite database
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     # Enforce foreign key constraints

@@ -1,16 +1,16 @@
 from sqlalchemy import create_engine, text
+from urllib.parse import quote_plus
 from sqlalchemy.orm import sessionmaker
 import datetime
 import logging
 import os
-from auxiliares import open_json
+from auxiliares import open_json, get_postgres_engine
 
 # Parametros principais
 MAIN_PARAMETERS = open_json()
 
 # Configuração do SQLITE3
-SQLITE_PATH = os.getenv('SQLITE_PATH', MAIN_PARAMETERS['backend']['sqlite_path'])
-engine = create_engine(SQLITE_PATH, echo=False)
+engine = get_postgres_engine(MAIN_PARAMETERS['postgres'])
 LogSession = sessionmaker(bind=engine)
 
 # --- Standard Logging Setup ---

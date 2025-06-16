@@ -1,12 +1,13 @@
 from flask import Flask, jsonify, request, send_from_directory, redirect
 from flask_sqlalchemy import SQLAlchemy
+from urllib.parse import quote_plus
 from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import safe_join
 from functools import wraps
 import os
-from auxiliares import open_json
+from auxiliares import open_json, get_postgres_url
 
 import time # For request duration logging
 
@@ -58,7 +59,7 @@ app = Flask(__name__)
 CORS(app, supports_credentials=True)  # para cookies via React
 app.config['REACT_BUILD'] = template_dir
 app.config['SECRET_KEY'] = main_parameters['backend']['secret_key']
-app.config['SQLALCHEMY_DATABASE_URI'] = main_parameters['backend']['sqlite_path']
+app.config['SQLALCHEMY_DATABASE_URI'] = get_postgres_url(main_parameters['postgres'])
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # --- Configurações Cruciais para Cookies de Sessão em HTTP ---
