@@ -3,7 +3,6 @@ import locale
 import os
 import sys
 import json
-import win32com.client
 import re
 from sqlalchemy import create_engine, text
 from urllib.parse import quote_plus

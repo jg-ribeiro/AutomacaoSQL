@@ -417,6 +417,7 @@ def get_job(job_id):
         }
     })
 
+
 @app.route('/api/jobs/<int:job_id>', methods=['PUT'])
 @login_required
 def update_job(job_id):
@@ -424,59 +425,85 @@ def update_job(job_id):
     actor = current_user.username
     log_info(logger, f"Attempting to update job ID {job_id} by user '{actor}'.", job_id=job_id, user=actor)
 
-
     j = JobHE.query.get_or_404(job_id)
-    original_name = j.job_name # For logging
+    original_name = j.job_name
 
     try:
-
-        # Track changes for logging
         changes = []
-        for field in ['job_name', 'job_status', 'export_type', 'export_path', 'export_name', 'days_offset', 'check_parameter', 'parameter_id', 'data_primary_key', 'sql_script']:
+
+        # 1. Rastrear mudanças em JobHE (sem aplicar ainda)
+        for field in ['job_name', 'job_status', 'export_type', 'export_path', 'export_name', 'days_offset',
+                      'check_parameter', 'parameter_id', 'data_primary_key', 'sql_script']:
             if field in data and getattr(j, field) != data[field]:
-                 changes.append(f"{field} changed") # Could log old/new values if needed
-                 setattr(j, field, data[field])
-        
-        # atualiza campos
+                # Guardamos o valor antigo e o novo para um log mais rico
+                old_value = getattr(j, field)
+                new_value = data[field]
+                changes.append(f"{field} changed from '{old_value}' to '{new_value}'")
+
+        # 2. Rastrear mudanças na agenda (JobDE)
+        new_sched_data = data.get('schedule', {})
+        new_minutes = sorted([x for x in new_sched_data.get('minute', '').split(',') if x])
+        new_hours = sorted([x for x in new_sched_data.get('hour', '').split(',') if x])
+        new_days = sorted(list(set(new_sched_data.get('day', '').split(','))))  # Usar set para remover duplicados
+
+        # Cria uma representação "canônica" da nova agenda
+        new_schedule_set = set()
+        for d in new_days:
+            for h in new_hours:
+                for m in new_minutes:
+                    new_schedule_set.add((d, h, m))
+
+        # Pega a agenda antiga do banco para comparar
+        old_schedules = JobDE.query.filter_by(job_id=job_id).all()
+        old_schedule_set = set((s.job_day, s.job_hour, s.job_minute) for s in old_schedules)
+
+        # Compara a agenda antiga com a nova
+        if old_schedule_set != new_schedule_set:
+            changes.append("schedule changed")
+
+        # 3. Se não houver mudanças, retornar agora
+        if not changes:
+            log_info(logger,
+                     f"Job update attempt for '{original_name}' (ID: {job_id}) by '{actor}': No changes detected.",
+                     job_id=job_id, user=actor)
+            return jsonify({'msg': 'no changes'}), 200
+
+        # 4. Se houver mudanças, aplicar TODAS elas
+        # Aplicar mudanças em JobHE
         j.job_name = data['job_name']
-        j.job_status=data['job_status']
+        j.job_status = data['job_status']
         j.export_type = data['export_type']
         j.export_path = data['export_path']
         j.export_name = data['export_name']
         j.check_parameter = data['check_parameter']
-        j.days_offset=data['days_offset']
+        j.days_offset = data['days_offset']
         j.parameter_id = data.get('parameter_id')
         j.data_primary_key = data.get('data_primary_key')
         j.sql_script = data.get('sql_script')
-        # remove agendas antigas
-        JobDE.query.filter_by(job_id=job_id).delete()
-        # recria todas as combinações de day × hour × minute
-        sched = data.get('schedule', {})
-        minutes =  [x for x in sched.get('minute', '').split(',') if x]
-        hours   =  [x for x in sched.get('hour',   '').split(',') if x]
-        days    =  [x for x in set(sched.get('day',    '').split(',')) if x] #Adicionado set() para remover suplicados
-        for d in days:
-            for h in hours:
-                for m in minutes:
-                    db.session.add(JobDE(
-                        job_id=job_id,
-                        job_minute=m,
-                        job_hour=h,
-                        job_day=d
-                    ))
 
-        
-        if not changes:
-            log_info(logger, f"Job update attempt for '{original_name}' (ID: {job_id}) by '{actor}': No changes detected.", job_id=job_id, user=actor)
-            return jsonify({'msg':'no changes'}), 200
+        # Aplicar mudanças em JobDE (apagar e recriar)
+        JobDE.query.filter_by(job_id=job_id).delete(
+            synchronize_session=False)  # Adicionar synchronize_session pode evitar alguns warnings/erros
+
+        # Adiciona os novos agendamentos usando o conjunto já calculado
+        for d, h, m in new_schedule_set:
+            db.session.add(JobDE(
+                job_id=job_id,
+                job_minute=m,
+                job_hour=h,
+                job_day=d
+            ))
 
         db.session.commit()
-        log_info(logger, f"Job '{j.job_name}' (ID: {job_id}) updated successfully by '{actor}'. Changes: {'; '.join(changes)}.", job_id=job_id, user=actor)
+        log_info(logger,
+                 f"Job '{j.job_name}' (ID: {job_id}) updated successfully by '{actor}'. Changes: {'; '.join(changes)}.",
+                 job_id=job_id, user=actor)
 
-        return jsonify({'msg':'updated'})
+        return jsonify({'msg': 'updated'})
     except Exception as e:
         db.session.rollback()
-        log_exception(logger, f"Error updating job '{original_name}' (ID: {job_id}) by '{actor}': {e}", job_id=job_id, user=actor)
+        log_exception(logger, f"Error updating job '{original_name}' (ID: {job_id}) by '{actor}': {e}", job_id=job_id,
+                      user=actor)
         return jsonify({'msg': 'Error updating job'}), 500
 
 @app.route('/api/jobs/<int:job_id>', methods=['DELETE'])
