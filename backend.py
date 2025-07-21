@@ -112,7 +112,7 @@ class JobHE(db.Model):
     parameter_id     = db.Column(db.Integer, db.ForeignKey('parameters.parameter_id'))
     data_primary_key = db.Column(db.Text)
     sql_script       = db.Column(db.Text)
-    schedule         = db.relationship('JobDE', backref='job')
+    schedule         = db.relationship('JobDE', backref='job', cascade="all, delete-orphan")
 
 class JobDE(db.Model):
     __tablename__ = 'jobs_de'
@@ -511,22 +511,26 @@ def update_job(job_id):
 def delete_job(job_id):
     actor = current_user.username
     log_info(logger, f"Attempting to delete job ID {job_id} by user '{actor}'.", job_id=job_id, user=actor)
-    
-    j = JobHE.query.get_or_404(job_id)
-    job_name = j.job_name # For logging
 
     try:
-        # Deleting JobHE should cascade delete JobDE due to relationship/FK config
-        JobHE.query.filter_by(job_id=job_id).delete()
+        j = JobHE.query.get_or_404(job_id)
+        job_name = j.job_name
+
+        # Primeiro, deletar os filhos (JobDE)
         JobDE.query.filter_by(job_id=job_id).delete()
+
+        # Depois, deletar o pai (JobHE)
+        db.session.delete(j)
 
         db.session.commit()
         log_info(logger, f"Job '{job_name}' (ID: {job_id}) deleted successfully by '{actor}'.", job_id=job_id, user=actor)
-        return jsonify({'msg':'deleted'})
+        return jsonify({'msg': 'deleted'})
+
     except Exception as e:
         db.session.rollback()
         log_exception(logger, f"Error deleting job '{job_name}' (ID: {job_id}) by '{actor}': {e}", job_id=job_id, user=actor)
         return jsonify({'msg': 'Error deleting job'}), 500
+
     
 
 # =========================================================
