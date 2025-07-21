@@ -112,7 +112,7 @@ class JobHE(db.Model):
     parameter_id     = db.Column(db.Integer, db.ForeignKey('parameters.parameter_id'))
     data_primary_key = db.Column(db.Text)
     sql_script       = db.Column(db.Text)
-    schedule         = db.relationship('JobDE', uselist=False, backref='job')
+    schedule         = db.relationship('JobDE', backref='job')
 
 class JobDE(db.Model):
     __tablename__ = 'jobs_de'
